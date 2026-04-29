@@ -18,7 +18,7 @@ function detect_os {
 }
 
 function check_requirements {
-        local required_packages=("fzf" "jq" "fping" "iperf3" "curl")
+        local required_packages=("fzf" "jq" "yq" "fping" "iperf3" "curl")
         local missing_packages=()
 
         os_type=$(detect_os)
