@@ -2,9 +2,15 @@
 
 set -euo pipefail
 
-declare regions=("Russia" "Europe" "Asia" "North America" "South America" "Oceania" "Africa")
-declare menu_options=("Start iperf3 test" "Fetch newest iperf lists" "Quit")
+fzf_header=$(cat << EOU
+rapid-iperf
+Bash script tool for running iperf3 network tests with automatic server selection based on latency
 
+EOU
+)
+
+declare regions=("Russia" "Europe" "Asia" "North America" "South America" "Oceania" "Africa")
+declare menu_options=("Run test (select region)" "Test favourite servers" "Fetch newest iperf lists" "Quit")
 
 function detect_os {
     if [[ -f /etc/debian-release ]]; then
@@ -14,7 +20,6 @@ function detect_os {
     else
         echo "unknown"
     fi
-
 }
 
 function check_requirements {
@@ -43,6 +48,49 @@ function check_requirements {
         fi
 }
 
+function run_test {
+    host=$1
+    port=$2
+    if iperf3 -c "$host" -p "$port" -P1; then
+        found=false
+        while IFS='|' read -r fav_host; do
+            if [[ "$fav_host" == "$host" ]]; then
+                found=true
+                break
+            fi
+        done < iperf/favourite.txt
+        if ! $found; then
+            read -r -p "Save this server to favourites? [y/N]: " answer
+            if [[ "$answer" =~ ^[Yy] ]]; then
+                echo "$best_server" >> iperf/favourite.txt
+                return
+            else
+                menu
+            fi
+        fi
+    else 
+        echo "Failed to start iperf3 test."
+    fi
+    read -n 1 -s -r -p "Press any key to continue ..."
+    menu
+
+}
+
+function select_favourite {
+    choose=$({ while IFS='|' read -r host port city country isp; do
+        echo "$host $port $isp ($city, $country)"
+    done < iperf/favourite.txt
+    echo "Back";  } | fzf --header "$fzf_header" --layout=reverse) || menu
+    if [[ $choose == "Back" ]]; then
+        menu
+    fi
+    host=$(printf "%s\n" "$choose" | awk -F ' ' '{print $1}')
+    port=$(printf "%s\n" "$choose" | awk -F ' ' '{print $2}')
+    
+    run_test "$host" "$port"
+
+}
+
 function fetch_iperf {
     mkdir -p iperf
     if curl https://export.iperf3serverlist.net/listed_iperf3_servers.json -o iperf/new_iperf_servers.json; then
@@ -60,7 +108,7 @@ function fetch_iperf {
     menu
 }
 
-function run_iperf_test  {
+function find_best_server  {
     cmd=$1
     servers=$(echo "$cmd" | cut -d'|' -f1)
     total=$(echo "$servers" | wc -l)
@@ -74,37 +122,41 @@ function run_iperf_test  {
     ping=$(awk '{print $2}' <<< "$best_ip")
     best_server=$(grep "^${formatted_ip}|" <<< "$cmd")    
     IFS='|' read -r host port city country isp <<< "$best_server"
-
     echo "Best server: $host $ping ms $isp ($city, $country)"
     echo "Starting iperf test ..."
-    if iperf3 -c "$host" -p "$port" -P1; then
-        read -n 1 -s -r -p "Press any key to continue ..."
-        menu
-    else 
-        echo "Failed to start iperf3 test"
-        read -n 1 -s -r -p "Press any key to continue ..."
-        menu
-    fi
+
+    run_test "$host" "$port"
 }
 
 function choose_region {
-    choose=$(printf "%s\n" "${regions[@]}" | fzf --reverse ) || menu
+    choose=$(printf "%s\n" "${regions[@]}" | fzf --header "$fzf_header" --layout=reverse ) || menu
     if [[ $choose == "Russia" ]]; then
-        cmd=$(yq '.[] | "\(.address)|\(.port)|\(.City)|RU|\(.Name)"' iperf/ru_iperf.yaml) \
-        && run_iperf_test "$cmd" \
-        || read -n 1 -s -r -p "Fetch servers first. Press any key to continue ..."; menu
+        if cmd=$(yq '.[] | "\(.address)|\(.port)|\(.City)|RU|\(.Name)"' iperf/ru_iperf.yaml); then
+            find_best_server "$cmd"
+        else
+            read -n 1 -s -r -p "Fetch servers first. Press any key to continue ..."
+            menu
+        fi
 
     else
-        cmd=$(cat iperf/iperf_servers.json | jq -r --arg choose "$choose" '.[] | select(.CONTINENT == $choose)."IP/HOST"+"|"+."PORT"+"|"+."SITE"+"|"+."COUNTRY"+"|"+."PROVIDER"')
-        run_iperf_test "$cmd"
+        if cmd=$(cat iperf/iperf_servers.json | jq -r --arg choose "$choose" \
+        '.[] | select(.CONTINENT == $choose)."IP/HOST"+"|"+."PORT"+"|"+."SITE"+"|"+."COUNTRY"+"|"+."PROVIDER"'); then
+            find_best_server "$cmd"
+        else
+            read -n 1 -s -r -p "Fetch servers first. Press any key to continue ..."
+            menu 
+        fi
     fi
 }
 
 function menu {
-    choose=$(printf "%s\n" "${menu_options[@]}" | fzf)
+    choose=$(printf "%s\n" "${menu_options[@]}" | fzf --header "$fzf_header" --layout=reverse)
     case $choose in
-        "Start iperf3 test")
+        "Run test (select region)")
             choose_region
+            ;;
+        "Test favourite servers")
+            select_favourite
             ;;
         "Fetch newest iperf lists")
             fetch_iperf
