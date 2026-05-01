@@ -1,25 +1,39 @@
 # rapid-iperf
 
-Script to run iperf3 tests. Currently WIP
+Bash script tool for running iperf3 network tests with automatic server selection based on latency 
 
 ## Features
 - Automatically downloads iperf3 public servers
 - Latency-based iperf3 server selection
+- Interactive navigation using ```fzf```
+
+## Available regions
+- Russia
+- Europe
+- Asia
+- North America
+- South America
+- Oceania
+- Africa
 
 ## Usage
 ```bash
 ./iperf.sh           
-
-./iperf.sh --help            Display help
-./iperf.sh --fetch           Fetch newest iperf3 servers 
 ```
 
 ## Todo
-- Region selection
-- Automatic install of dependencies
+- [x] Region selection
+- [x] Automatic install of dependencies
+- [ ] Favourite servers
 
 ## Dependencies
 - iperf3
+- fzf
 - jq
+- yq
 - fping
 - curl
+
+## Notes
+
+Still WIP
