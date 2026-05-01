@@ -24,7 +24,7 @@ Bash script tool for running iperf3 network tests with automatic server selectio
 ## Todo
 - [x] Region selection
 - [x] Automatic install of dependencies
-- [ ] Favourite servers
+- [X] Favourite servers
 
 ## Dependencies
 - iperf3
