@@ -6,6 +6,7 @@ Bash script tool for running iperf3 network tests with automatic server selectio
 - Automatically downloads iperf3 public servers
 - Latency-based iperf3 server selection
 - Interactive navigation using ```fzf```
+- Favourite servers feature
 
 ## Available regions
 - Russia
