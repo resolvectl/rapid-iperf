@@ -26,6 +26,7 @@ Bash script tool for running iperf3 network tests with automatic server selectio
 - [x] Region selection
 - [x] Automatic install of dependencies
 - [X] Favourite servers
+- [ ] Fallback server feature
 
 ## Dependencies
 - iperf3
